@@ -19,7 +19,7 @@ import java.util.*;
 @ExtensionInfo(
         Title = "GiftPeeker",
         Description = "Find out what is inside a gift",
-        Version = "0.1",
+        Version = "0.2",
         Author = "WiredSpast"
 )
 public class GiftPeeker extends Extension {
@@ -61,9 +61,10 @@ public class GiftPeeker extends Extension {
             synchronized (productDataLock) {
                 try {
                     JSONObject productDataJson = new JSONObject(IOUtils.toString(new URL(getProductDataUrl(host)).openStream(), StandardCharsets.UTF_8));
+                    System.out.println(productDataJson.toString(3));
                     productDataJson.getJSONObject("productdata").getJSONArray("product").forEach(o -> {
                         JSONObject productJson = (JSONObject) o;
-                        productData.put(productJson.getString("code"), productJson);
+                            productData.put("" + productJson.get("code"), productJson);
                     });
                 } catch (IOException e) {
                     e.printStackTrace();
