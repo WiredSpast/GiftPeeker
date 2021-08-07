@@ -175,7 +175,7 @@ public class GiftPeeker extends Extension {
                     packet.appendInt(item.getCategory());
                     packet.appendInt((Integer) stuff[0]);
                     for(int i = 1; i < stuff.length; i++) {
-                        packet.appendString((String) stuff[i], StandardCharsets.ISO_8859_1);
+                        packet.appendString((String) stuff[i], StandardCharsets.UTF_8);
                     }
 
                     this.sendToClient(packet);
