@@ -2,7 +2,6 @@ package extension;
 
 import gearth.extensions.Extension;
 import gearth.extensions.ExtensionInfo;
-import gearth.extensions.extra.tools.PacketInfoSupport;
 import gearth.extensions.parsers.HFloorItem;
 import gearth.extensions.parsers.HStuff;
 import gearth.protocol.HMessage;
@@ -19,11 +18,10 @@ import java.util.*;
 @ExtensionInfo(
         Title = "GiftPeeker",
         Description = "Find out what is inside a gift",
-        Version = "0.2",
+        Version = "0.3",
         Author = "WiredSpast"
 )
 public class GiftPeeker extends Extension {
-    private PacketInfoSupport packetInfoSupport;
     private final Map<String, JSONObject> productData = new HashMap<>();
     private final Object productDataLock = new Object();
 
@@ -41,19 +39,17 @@ public class GiftPeeker extends Extension {
 
     @Override
     protected void initExtension() {
-        packetInfoSupport = new PacketInfoSupport(this);
-
         this.onConnect(this::doOnConnect);
 
         // Chat
-        packetInfoSupport.intercept(HMessage.Direction.TOSERVER, "Chat", this::onChatSend);
+        intercept(HMessage.Direction.TOSERVER, "Chat", this::onChatSend);
 
         // FloorItems
-        packetInfoSupport.intercept(HMessage.Direction.TOCLIENT, "Objects", this::onObjects);
-        packetInfoSupport.intercept(HMessage.Direction.TOCLIENT, "ObjectAdd", this::onObjectAddOrUpdate);
-        packetInfoSupport.intercept(HMessage.Direction.TOCLIENT, "ObjectUpdate", this::onObjectAddOrUpdate);
-        packetInfoSupport.intercept(HMessage.Direction.TOCLIENT, "ObjectRemove", this::onObjectRemove);
-        packetInfoSupport.intercept(HMessage.Direction.TOCLIENT, "ObjectDataUpdate", this::onObjectDataUpdate);
+        intercept(HMessage.Direction.TOCLIENT, "Objects", this::onObjects);
+        intercept(HMessage.Direction.TOCLIENT, "ObjectAdd", this::onObjectAddOrUpdate);
+        intercept(HMessage.Direction.TOCLIENT, "ObjectUpdate", this::onObjectAddOrUpdate);
+        intercept(HMessage.Direction.TOCLIENT, "ObjectRemove", this::onObjectRemove);
+        intercept(HMessage.Direction.TOCLIENT, "ObjectDataUpdate", this::onObjectDataUpdate);
     }
 
     private void doOnConnect(String host, int i, String s1, String s2, HClient hClient) {
@@ -61,11 +57,11 @@ public class GiftPeeker extends Extension {
             synchronized (productDataLock) {
                 try {
                     JSONObject productDataJson = new JSONObject(IOUtils.toString(new URL(getProductDataUrl(host)).openStream(), StandardCharsets.UTF_8));
-                    System.out.println(productDataJson.toString(3));
                     productDataJson.getJSONObject("productdata").getJSONArray("product").forEach(o -> {
                         JSONObject productJson = (JSONObject) o;
                             productData.put("" + productJson.get("code"), productJson);
                     });
+                    sendToClient(new HPacket("{in:NotificationDialog}{s:\"\"}{i:3}{s:\"display\"}{s:\"BUBBLE\"}{s:\"message\"}{s:\"GiftPeeker: Productdata loaded!\"}{s:\"image\"}{s:\"https://raw.githubusercontent.com/sirjonasxx/G-ExtensionStore/repo/1.5/store/extensions/Giftpeeker/icon.png\"}"));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -90,7 +86,7 @@ public class GiftPeeker extends Extension {
             case "game-es.habbo.com":
                 return "https://www.habbo.es/gamedata/productdata_json/1";
             case "game-it.habbo.com":
-                return "https://www.habboit/gamedata/productdata_json/1";
+                return "https://www.habbo.it/gamedata/productdata_json/1";
             case "game-s2.habbo.com":
                 return "https://sandbox.habbo.com/gamedata/productdata_json/1";
             default:
@@ -102,10 +98,14 @@ public class GiftPeeker extends Extension {
         String msg = hMessage.getPacket().readString();
         if(msg.startsWith(":peek")) {
             hMessage.setBlocked(true);
-            peeking = !peeking;
-            packetInfoSupport.sendToClient("Shout", -1, "GiftPeeker " + (peeking ? "en" : "dis") + "abled!", 0, 30, 0, -1);
+            if(!productData.isEmpty()) {
+                peeking = !peeking;
+                sendToClient( new HPacket("Shout", HMessage.Direction.TOCLIENT, -1, "GiftPeeker " + (peeking ? "en" : "dis") + "abled!", 0, 30, 0, -1));
 
-            updateAllGifts();
+                updateAllGifts();
+            } else {
+                sendToClient( new HPacket("Shout", HMessage.Direction.TOCLIENT, -1, "Productdata not loaded, can't enable GiftPeeker!", 0, 30, 0, -1));
+            }
         }
     }
 
@@ -153,7 +153,6 @@ public class GiftPeeker extends Extension {
 
     private void updateAllGifts() {
         synchronized (floorItemsLock) {
-            System.out.println(floorItems.size());
             floorItems.values().forEach(this::updateGift);
         }
     }
@@ -168,9 +167,7 @@ public class GiftPeeker extends Extension {
                         stuff = updatedStuff;
                     }
 
-                    int headerId = this.getPacketInfoManager().getAllPacketInfoFromName(HMessage.Direction.TOCLIENT, "ObjectDataUpdate").get(0).getHeaderId();
-
-                    HPacket packet = new HPacket(headerId);
+                    HPacket packet = new HPacket("ObjectDataUpdate", HMessage.Direction.TOCLIENT);
                     packet.appendString(Integer.toString(item.getId()));
                     packet.appendInt(item.getCategory());
                     packet.appendInt((Integer) stuff[0]);
