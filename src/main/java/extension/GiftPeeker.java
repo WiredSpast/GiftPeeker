@@ -18,7 +18,7 @@ import java.util.*;
 @ExtensionInfo(
         Title = "GiftPeeker",
         Description = "Find out what is inside a gift",
-        Version = "0.3",
+        Version = "0.4",
         Author = "WiredSpast"
 )
 public class GiftPeeker extends Extension {
@@ -189,9 +189,14 @@ public class GiftPeeker extends Extension {
             int productCodeIndex = stuffList.indexOf("PRODUCT_CODE") + 1;
             synchronized (productDataLock) {
                 JSONObject data = productData.get((String) stuffList.get(productCodeIndex));
-                newStuff[messageIndex] = "Product code: " + data.getString("code") + "\r"
-                        + "Name: " + data.getString("name") + "\r"
-                        + "Description: " + data.getString("description");
+                if (data != null) {
+                    newStuff[messageIndex] = "Product code: " + data.getString("code") + "\r"
+                            + "Name: " + data.getString("name") + "\r"
+                            + "Description: " + data.getString("description");
+                } else {
+                    newStuff[messageIndex] = "Product code: " + stuffList.get(productCodeIndex) + "\r"
+                            + "Couldn't find code in product data...";
+                }
             }
         }
         return newStuff;
